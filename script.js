@@ -336,6 +336,79 @@
     renderTudo();
   });
 
+  function toast(msg, isError) {
+    const container = document.getElementById("toast-container");
+    const el = document.createElement("div");
+    el.className = "toast" + (isError ? " error" : "");
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+
+  function brl(n) {
+    return (Number(n) || 0).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+  function fmtData(iso) {
+    const d = new Date(iso);
+    return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function statusItem(item) {
+    if (item.quantidade <= 0) return "esgotado";
+    if (item.quantidade <= item.qtd_minima) return "baixo";
+    return "ok";
+  }
+  function statusLabel(s) {
+    return s === "esgotado" ? "Esgotado" : s === "baixo" ? "Estoque baixo" : "Normal";
+  }
+
+  function currentUser() {
+    if (!sessao) return null;
+    return users.find((u) => u.id === sessao.userId) || null;
+  }
+
+  function isAdmin() {
+    const u = currentUser();
+    return !!u && u.role === "admin";
+  }
+
+  function fazerLogin(usuario, senha) {
+    const u = users.find(
+      (x) => x.user.toLowerCase() === usuario.trim().toLowerCase()
+    );
+    if (!u || u.pass !== simpleHash(senha)) {
+      return { ok: false, msg: "Usuário ou senha inválidos." };
+    }
+    sessao = { userId: u.id };
+    return { ok: true };
+  }
+
+  function criarUsuario(usuario, senha, role) {
+    usuario = usuario.trim();
+    if (usuario.length < 3) return { ok: false, msg: "Usuário deve ter ao menos 3 caracteres." };
+    if (senha.length < 8) return { ok: false, msg: "Senha deve ter ao menos 8 caracteres." };
+    if (users.some((u) => u.user.toLowerCase() === usuario.toLowerCase())) {
+      return { ok: false, msg: "Esse usuário já existe." };
+    }
+    const isFirstUser = users.length === 0;
+    const novo = {
+      id: uid(),
+      user: usuario,
+      pass: simpleHash(senha),
+      role: isFirstUser ? "admin" : role || "operador",
+    };
+    users.push(novo);
+    return { ok: true, user: novo, isFirstUser };
+  }
+
+  function logout() {
+    sessao = null;
+    mostrarLogin();
+  }
+
   const formMov = document.getElementById("form-mov");
   const selectMovItem = document.getElementById("mov-item");
   const tbodyMov = document.getElementById("tbody-mov");
