@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estoque — Controle de Almoxarifado</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div id="login-screen">
+  <div class="login-card">
+    <span class="mark">ST</span>
+    <h1>Controle de Estoque</h1>
+    <p class="sub">entre com sua conta para continuar</p>
+
+    <div class="login-tabs">
+      <button id="tab-login" class="active" type="button">Entrar</button>
+      <button id="tab-register" type="button">Criar conta</button>
+    </div>
+
+    <div class="login-error" id="login-error"></div>
+
+    <form id="form-login">
+      <label>Usuário</label>
+      <input type="text" id="login-user" autocomplete="username" required>
+      <div style="height:12px;"></div>
+      <label>Senha</label>
+      <input type="password" id="login-pass" autocomplete="current-password" required>
+      <div style="height:18px;"></div>
+      <button type="submit" class="btn" style="width:100%;">Entrar</button>
+    </form>
+
+    <form id="form-register" style="display:none;">
+      <label>Novo usuário</label>
+      <input type="text" id="reg-user" minlength="3" required>
+      <div style="height:12px;"></div>
+      <label>Senha (mín. 8 caracteres)</label>
+      <input type="password" id="reg-pass" minlength="8" required>
+      <div style="height:18px;"></div>
+      <button type="submit" class="btn teal" style="width:100%;">Criar conta</button>
+      <p class="login-hint">O primeiro usuário criado no sistema vira administrador automaticamente. Depois disso, novas contas só podem ser criadas por um admin já logado (aba "Usuários").</p>
+    </form>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="brand">
+      <span class="mark">ST</span>
+      <div>
+        <h1>Controle de Estoque</h1>
+        <span>almoxarifado digital</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <button id="btn-export">⬇ Exportar Excel</button>
+      <div class="user-chip">
+        <span id="user-name"></span>
+        <span class="role-badge" id="user-role"></span>
+      </div>
+      <button id="btn-logout">Sair</button>
+    </div>
+  </header>
+
+  <nav>
+    <button class="nav-btn active" data-view="dashboard">Painel</button>
+    <button class="nav-btn" data-view="estoque">Estoque</button>
+    <button class="nav-btn" data-view="movimentacoes">Movimentações</button>
+    <button class="nav-btn" data-view="fornecedores">Fornecedores</button>
+    <button class="nav-btn" data-view="usuarios" id="nav-usuarios" style="display:none;">Usuários</button>
+  </nav>
+
+  <main>
+    <section class="view active" id="view-dashboard">
+      <div class="kpis">
+        <div class="kpi"><div class="label">Itens cadastrados</div><div class="value" id="kpi-itens">—</div></div>
+        <div class="kpi teal"><div class="label">Valor em estoque</div><div class="value" id="kpi-valor">—</div></div>
+        <div class="kpi rust"><div class="label">Estoque baixo/esgotado</div><div class="value" id="kpi-baixo">—</div></div>
+        <div class="kpi"><div class="label">Movimentações recentes</div><div class="value" id="kpi-mov">—</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Últimas movimentações</h2></div>
+        <div class="panel-body" id="dash-mov-list"><div class="loading">carregando…</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Alertas de estoque</h2></div>
+        <div class="panel-body" id="dash-alertas"><div class="loading">carregando…</div></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-estoque">
+      <div class="panel">
+        <div class="panel-head"><h2>Novo item</h2></div>
+        <div class="panel-body">
+          <form id="form-item" class="form-grid">
+            <div><label>Nome</label><input type="text" id="item-nome" required></div>
+            <div><label>Categoria</label><input type="text" id="item-categoria" placeholder="ex: limpeza"></div>
+            <div><label>Quantidade</label><input type="number" id="item-qtd" min="0" required></div>
+            <div><label>Qtd. mínima</label><input type="number" id="item-min" min="0" value="5"></div>
+            <div><label>Preço unit. (R$)</label><input type="number" id="item-preco" min="0" step="0.01" required></div>
+            <div><label>Fornecedor</label><select id="item-fornecedor"><option value="">— nenhum —</option></select></div>
+            <div><button type="submit" class="btn">Adicionar</button></div>
+          </form>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Itens em estoque</h2>
+          <div class="toolbar">
+            <input type="text" id="filtro-busca" placeholder="buscar por nome…">
+            <select id="filtro-status">
+              <option value="">todos os status</option>
+              <option value="baixo">estoque baixo</option>
+              <option value="esgotado">esgotado</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-body">
+          <table id="tabela-estoque">
+            <thead>
+              <tr>
+                <th data-sort="nome">Nome</th>
+                <th data-sort="categoria">Categoria</th>
+                <th data-sort="quantidade">Qtd.</th>
+                <th data-sort="qtd_minima">Mínima</th>
+                <th data-sort="preco">Preço</th>
+                <th>Fornecedor</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-estoque"></tbody>
+          </table>
+          <div class="empty" id="estoque-empty" style="display:none;">nenhum item encontrado</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-movimentacoes">
+      <div class="panel">
+        <div class="panel-head"><h2>Registrar movimentação</h2></div>
+        <div class="panel-body">
+          <form id="form-mov" class="form-grid">
+            <div><label>Item</label><select id="mov-item" required></select></div>
+            <div><label>Tipo</label>
+              <select id="mov-tipo"><option value="entrada">Entrada</option><option value="saida">Saída</option></select>
+            </div>
+            <div><label>Quantidade</label><input type="number" id="mov-qtd" min="1" required></div>
+            <div><label>Motivo</label><input type="text" id="mov-motivo" placeholder="ex: compra, venda, perda"></div>
+            <div><button type="submit" class="btn teal">Registrar</button></div>
+          </form>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Histórico de movimentações</h2></div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Data</th><th>Item</th><th>Tipo</th><th>Qtd.</th><th>Motivo</th><th>Usuário</th></tr></thead>
+            <tbody id="tbody-mov"></tbody>
+          </table>
+          <div class="empty" id="mov-empty" style="display:none;">nenhuma movimentação registrada ainda</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-fornecedores">
+      <div class="panel">
+        <div class="panel-head"><h2>Novo fornecedor</h2></div>
+        <div class="panel-body">
+          <form id="form-fornecedor" class="form-grid">
+            <div><label>Nome</label><input type="text" id="forn-nome" required></div>
+            <div><label>Contato</label><input type="text" id="forn-contato" placeholder="telefone / e-mail"></div>
+            <div><label>Cidade</label><input type="text" id="forn-cidade"></div>
+            <div><button type="submit" class="btn">Adicionar</button></div>
+          </form>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Fornecedores cadastrados</h2></div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Nome</th><th>Contato</th><th>Cidade</th><th>Itens fornecidos</th><th></th></tr></thead>
+            <tbody id="tbody-fornecedores"></tbody>
+          </table>
+          <div class="empty" id="forn-empty" style="display:none;">nenhum fornecedor cadastrado ainda</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-usuarios">
+      <div class="panel">
+        <div class="panel-head"><h2>Criar novo usuário</h2></div>
+        <div class="panel-body">
+          <form id="form-usuario" class="form-grid">
+            <div><label>Usuário</label><input type="text" id="user-novo-nome" minlength="3" required></div>
+            <div><label>Senha</label><input type="password" id="user-novo-senha" minlength="8" required></div>
+            <div><label>Papel</label>
+              <select id="user-novo-role"><option value="operador">Operador</option><option value="admin">Admin</option></select>
+            </div>
+            <div><button type="submit" class="btn">Criar usuário</button></div>
+          </form>
+          <p class="login-hint" style="margin-top:14px;">Operadores podem cadastrar itens, fornecedores e movimentações. Apenas admins podem excluir registros e criar novos usuários.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>controle de estoque · dados mantidos em memória (arrays) durante a sessão — reinicia a cada carregamento da página.</footer>
+</div>
+
+<div class="modal-backdrop" id="modal-editar">
+  <div class="modal">
+    <div class="modal-head"><h3>Editar item</h3><button class="modal-close" id="modal-editar-fechar">&times;</button></div>
+    <div class="modal-body">
+      <form id="form-editar-item">
+        <input type="hidden" id="edit-id">
+        <label>Nome</label><input type="text" id="edit-nome" required>
+        <div style="height:10px;"></div>
+        <label>Categoria</label><input type="text" id="edit-categoria">
+        <div style="height:10px;"></div>
+        <label>Quantidade</label><input type="number" id="edit-qtd" min="0" required>
+        <div style="height:10px;"></div>
+        <label>Qtd. mínima</label><input type="number" id="edit-min" min="0">
+        <div style="height:10px;"></div>
+        <label>Preço unit. (R$)</label><input type="number" id="edit-preco" min="0" step="0.01" required>
+        <div style="height:10px;"></div>
+        <label>Fornecedor</label><select id="edit-fornecedor"><option value="">— nenhum —</option></select>
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" id="modal-editar-cancelar">Cancelar</button>
+          <button type="submit" class="btn">Salvar alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-confirmar">
+  <div class="modal">
+    <div class="modal-head"><h3>Confirmar exclusão</h3><button class="modal-close" id="modal-confirmar-fechar">&times;</button></div>
+    <div class="modal-body">
+      <p id="modal-confirmar-texto" style="color:var(--muted); font-size:14px;"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" id="modal-confirmar-cancelar">Cancelar</button>
+        <button type="button" class="btn rust" id="modal-confirmar-ok">Excluir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
